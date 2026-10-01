@@ -149,6 +149,8 @@ export const AdminApprovalDashboard: React.FC = () => {
       },
       (err) => {
         console.warn("Requests subscription notice:", err);
+        const errMsg = err instanceof Error ? err.message : String(err);
+        toastError("Dashboard Sync Error", "Failed to load requests: " + errMsg + ". If you are using Firebase, check your Firestore Security Rules (make sure your admin email is included in the rules).");
         setIsLoading(false);
       }
     );
