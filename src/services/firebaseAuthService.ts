@@ -245,10 +245,11 @@ export async function submitAccessRequest(userData: {
         status: "PENDING",
         requestId: deterministicUid,
         message: "CRITICAL ERROR: Could not reach the backend. If you are on Render, ensure you are accessing the Web Service URL, not the Static Site URL. Error: " + backendErr,
-      };
+        };
+      }
     }
 
-  // Live Firestore write
+    // Live Firestore write
   try {
     // Step A: Check for existing request by Document ID
     const reqDocRef = doc(db, "access_requests", deterministicUid);
@@ -389,10 +390,10 @@ export async function submitAccessRequest(userData: {
   } catch (err: unknown) {
     console.warn("[Firestore] submitAccessRequest write error:", err);
     return {
-      success: true,
+      success: false,
       status: "PENDING",
       requestId: deterministicUid,
-      message: "Your request has been sent to the HR Admin. Please wait for approval.",
+      message: "CRITICAL FIREBASE ERROR: Failed to save request to Firestore. Please check your Firestore Security Rules and ensure your database is created. Error: " + (err instanceof Error ? err.message : String(err)),
     };
   }
 }
