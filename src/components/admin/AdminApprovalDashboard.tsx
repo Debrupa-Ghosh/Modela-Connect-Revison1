@@ -73,8 +73,8 @@ export const AdminApprovalDashboard: React.FC = () => {
   const { success, error: toastError, info } = useToast();
   const navigate = useNavigate();
 
-  // Top-level View Tab: "Access Requests" vs "Audit History" vs "Employees"
-  const [activeView, setActiveView] = useState<"ACCESS_REQUESTS" | "AUDIT_HISTORY" | "EMPLOYEES">("ACCESS_REQUESTS");
+  // Top-level View Tab: "User Management" (new access requests) | "Requests" (from verified employees) | "Audit History" | "Employees"
+  const [activeView, setActiveView] = useState<"USER_MANAGEMENT" | "EMPLOYEE_REQUESTS" | "AUDIT_HISTORY" | "EMPLOYEES">("USER_MANAGEMENT");
 
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -332,30 +332,32 @@ export const AdminApprovalDashboard: React.FC = () => {
     }
   };
 
-  // Filtered users for Access Requests section (prioritizes pending and newest requests)
-  const filteredAccessRequests = users
+  // User Management tab: only PENDING users (new unknown emails requesting access)
+  const filteredUserManagement = users
     .filter((u) => {
       const norm = normalizeStatus(u.status);
-      const matchesStatus = statusFilter === "ALL" || norm === statusFilter;
       const q = searchQuery.toLowerCase().trim();
       const name = (u.name || "").toLowerCase();
       const email = (u.email || "").toLowerCase();
       const role = (u.role || "").toLowerCase();
-      const matchesSearch =
-        !q ||
-        name.includes(q) ||
-        email.includes(q) ||
-        role.includes(q);
-      return matchesStatus && matchesSearch;
+      const matchesSearch = !q || name.includes(q) || email.includes(q) || role.includes(q);
+      return norm === "PENDING" && matchesSearch;
     })
     .sort((a, b) => {
-      const normA = normalizeStatus(a.status);
-      const normB = normalizeStatus(b.status);
-      if (normA === "PENDING" && normB !== "PENDING") return -1;
-      if (normB === "PENDING" && normA !== "PENDING") return 1;
       const timeA = new Date(a.requestDate || a.requestedAt || a.statusUpdatedAt || 0).getTime();
       const timeB = new Date(b.requestDate || b.requestedAt || b.statusUpdatedAt || 0).getTime();
       return timeB - timeA;
+    });
+
+  // Employee Requests tab: only APPROVED users (verified employees submitting requests/details)
+  const filteredEmployeeRequests = users
+    .filter((u) => {
+      const norm = normalizeStatus(u.status);
+      const q = searchQuery.toLowerCase().trim();
+      const name = (u.name || "").toLowerCase();
+      const email = (u.email || "").toLowerCase();
+      const matchesSearch = !q || name.includes(q) || email.includes(q);
+      return norm === "APPROVED" && matchesSearch;
     });
 
   // Section 4.C: Categorized Employees Management Section
@@ -370,8 +372,8 @@ export const AdminApprovalDashboard: React.FC = () => {
     return isApproved && isEmployee && matchesSearch;
   });
 
-  const pendingCount = users.filter((u) => normalizeStatus(u.status) === "PENDING").length;
-  const approvedEmployeesCount = users.filter(
+  const pendingCount = filteredUserManagement.length;
+  const employeeRequestsCount = filteredEmployeeRequests.length;
     (u) => normalizeStatus(u.status) === "APPROVED" && isEmployeeRole(u.role)
   ).length;
 
@@ -435,25 +437,40 @@ export const AdminApprovalDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Primary Section Switcher: Access Requests vs Dedicated Employees View vs Audit History */}
+      {/* Primary Section Switcher: User Management | Requests | Audit History | Employees View */}
       <div className="flex items-center gap-2 p-1.5 bg-slate-800/90 rounded-2xl border border-slate-700 w-fit">
         <button
-          onClick={() => setActiveView("ACCESS_REQUESTS")}
+          onClick={() => setActiveView("USER_MANAGEMENT")}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
-            activeView === "ACCESS_REQUESTS"
+            activeView === "USER_MANAGEMENT"
               ? "bg-blue-600 text-white shadow-md"
               : "text-slate-400 hover:text-white"
           }`}
         >
           <FileText className="w-3.5 h-3.5" />
-          <span>Access Requests</span>
-          {pendingCount > 0 && (
+          <ShieldCheck className="w-3.5 h-3.5" />
+          <span>User Management</span>
             <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-400 text-slate-900 font-extrabold">
               {pendingCount}
             </span>
           )}
         </button>
 
+
+        <button
+          onClick={() => setActiveView("EMPLOYEE_REQUESTS")}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+            activeView === "EMPLOYEE_REQUESTS"
+              ? "bg-blue-600 text-white shadow-md"
+              : "text-slate-400 hover:text-white"
+          }`}
+        >
+          <FileText className="w-3.5 h-3.5" />
+          <span>Requests</span>
+          <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-700 text-slate-300 font-medium">
+            {employeeRequestsCount}
+          </span>
+        </button>
         <button
           onClick={() => setActiveView("AUDIT_HISTORY")}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
@@ -492,8 +509,10 @@ export const AdminApprovalDashboard: React.FC = () => {
           <input
             type="text"
             placeholder={
-              activeView === "ACCESS_REQUESTS"
-                ? "Search by User Name or Email..."
+              activeView === "USER_MANAGEMENT"
+                ? "Search pending requests by Name or Email..."
+                : activeView === "EMPLOYEE_REQUESTS"
+                ? "Search verified employee requests..."
                 : activeView === "AUDIT_HISTORY"
                 ? "Search Audit History by Name, Auditor, Remarks..."
                 : "Search Approved Employees..."
@@ -504,7 +523,7 @@ export const AdminApprovalDashboard: React.FC = () => {
           />
         </div>
 
-        {activeView === "ACCESS_REQUESTS" && (
+        {false && activeView === "USER_MANAGEMENT" && (
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-400 font-medium">Filter Status:</span>
             {(
@@ -532,11 +551,11 @@ export const AdminApprovalDashboard: React.FC = () => {
       </div>
 
       {/* ========================================================================= */}
-      {/* SECTION 4.A: ACCESS REQUESTS TABLE (HR Admin & Super Admin)                */}
-      {/* Columns: [User Name | Email | Request Date | Status | Actions]             */}
-      {/* Strict NO-IMAGE Policy: Standard plain text identification only           */}
-      {/* ========================================================================= */}
-      {activeView === "ACCESS_REQUESTS" ? (
+      {/* ========================================================================= */
+      {/* SECTION: USER MANAGEMENT TABLE - shows PENDING access requests            */
+      {/* Columns: [User Name | Email | Request Date | Reason | Actions]           */
+      {/* Strict NO-IMAGE Policy: Standard plain text identification only          */
+      {activeView === "USER_MANAGEMENT" ? (
         <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
@@ -551,16 +570,16 @@ export const AdminApprovalDashboard: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700/60 text-xs">
-                {filteredAccessRequests.length === 0 ? (
+                {filteredUserManagement.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="py-12 text-center text-slate-400 text-xs">
                       {isLoading
                         ? "Loading access requests..."
-                        : "No user requests match the selected criteria."}
-                    </td>
+                        ? "Loading new access requests..."
+                        : "No pending access requests."}
                   </tr>
                 ) : (
-                  filteredAccessRequests.map((user) => {
+                   filteredUserManagement.map((user) => {
                     const normStatus = normalizeStatus(user.status);
                     const isPending = normStatus === "PENDING";
                     const isApproved = normStatus === "APPROVED";
@@ -671,12 +690,85 @@ export const AdminApprovalDashboard: React.FC = () => {
             </table>
           </div>
         </div>
+      ) : activeView === "EMPLOYEE_REQUESTS" ? (
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-sm overflow-hidden">
+          <div className="p-4 bg-slate-900/60 border-b border-slate-700 flex items-center justify-between">
+            <div>
+              <h3 className="font-bold text-white text-sm">Employee Requests</h3>
+              <p className="text-slate-400 text-xs">Requests and details submitted by verified employees approved by Super Admin.</p>
+            </div>
+            <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-700/60 text-emerald-200 border border-emerald-600/40">
+              {filteredEmployeeRequests.length} Verified
+            </span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-900/90 border-b border-slate-700 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  <th className="py-3.5 px-4">Employee Name</th>
+                  <th className="py-3.5 px-4">Email</th>
+                  <th className="py-3.5 px-4">Role</th>
+                  <th className="py-3.5 px-4">Approved On</th>
+                  <th className="py-3.5 px-4">Request Details / Reason</th>
+                  <th className="py-3.5 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-700/60 text-xs">
+                {filteredEmployeeRequests.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-12 text-center text-slate-400 text-xs">
+                      {isLoading ? "Loading employee requests..." : "No verified employee requests found. Employees will appear here once approved by a Super Admin."}
+                    </td>
+                  </tr>
+                ) : (
+                  filteredEmployeeRequests.map((user) => {
+                    const uid = user.id || user.uid;
+                    const approvedDate = user.reviewedAt || user.processedAt || user.statusUpdatedAt;
+                    return (
+                      <tr key={uid} className="hover:bg-slate-700/30 transition-colors bg-emerald-500/[0.02]">
+                        <td className="py-3.5 px-4">
+                          <div className="font-semibold text-white">{user.name}</div>
+                          <div className="text-[11px] text-slate-400">UID: {uid}</div>
+                        </td>
+                        <td className="py-3.5 px-4 font-mono text-slate-300">{user.email}</td>
+                        <td className="py-3.5 px-4">
+                          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-500/15 text-blue-300 border border-blue-500/30">
+                            {user.role || "Employee"}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 font-mono text-[11px] text-slate-300 whitespace-nowrap">
+                          {approvedDate ? new Date(approvedDate).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "N/A"}
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-400 text-xs">
+                          <div className="max-w-[220px] truncate" title={user.description || user.requestReason || "Account Access & Onboarding Request"}>
+                            {user.description || user.requestReason || "Account Access & Onboarding Request"}
+                          </div>
+                          {user.remarks && (
+                            <div className="text-[10px] text-slate-500 mt-0.5 truncate max-w-[220px]" title={user.remarks}>
+                              Remarks: {user.remarks}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          <button
+                            onClick={() => handleOpenAcceptModal(user)}
+                            className="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white rounded-lg text-xs font-medium transition-colors cursor-pointer flex items-center gap-1 ml-auto"
+                            title="Change Role"
+                          >
+                            <Edit className="w-3 h-3" />
+                            <span>Manage</span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       ) : activeView === "AUDIT_HISTORY" ? (
-        /* ========================================================================= */
-        /* AUDIT HISTORY VIEW: Resolved items (Approved & Rejected requests)         */
-        /* Displays auditor info, timestamps, assigned role, and remarks/reason      */
-        /* ========================================================================= */
-        <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-sm overflow-hidden">
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-sm overflow-hidden">
           <div className="p-4 bg-slate-900/60 border-b border-slate-700 flex items-center justify-between">
             <div>
               <h3 className="font-bold text-white text-sm">
@@ -774,13 +866,6 @@ export const AdminApprovalDashboard: React.FC = () => {
           </div>
         </div>
       ) : (
-        /* ========================================================================= */
-        /* SECTION 4.C: CATEGORIZED EMPLOYEES MANAGEMENT SECTION                     */
-        /* Dedicated "Employees" view under User Management                          */
-        /* Display ONLY users where status == 'APPROVED' and role == 'EMPLOYEE'      */
-        /* Table columns: [Employee Name | Email | Status: Active | Role: Employee]  */
-        /* Strict NO-IMAGE Policy: Standard plain text identification only           */
-        /* ========================================================================= */
         <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-sm overflow-hidden">
           <div className="p-4 bg-slate-900/60 border-b border-slate-700 flex items-center justify-between">
             <div>
