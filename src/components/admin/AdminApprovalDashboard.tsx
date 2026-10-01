@@ -126,25 +126,14 @@ export const AdminApprovalDashboard: React.FC = () => {
   const fetchUsers = async (silent = false) => {
     if (!currentUser?.email) return;
     if (!silent) setIsLoading(true);
-
-    try {
-      const res = await fetch("/api/users", {
-        headers: getAuthHeaders(),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data.users)) {
-          setUsers(data.users);
-        }
-      } else if (res.status === 403 || res.status === 401) {
-        if (!silent) toastError("Access Denied", "Administrative clearance is required.");
-      }
-    } catch (err: any) {
-      console.warn("Error fetching /api/users:", err);
-    } finally {
+    
+    // In hybrid mode, rely entirely on subscribeToAllRequests which handles 
+    // both Firestore and Express Fallback elegantly. Direct /api/users fetching 
+    // overwrites Firestore state with empty Express state if Firebase is active.
+    
+    setTimeout(() => {
       if (!silent) setIsLoading(false);
-    }
+    }, 500);
   };
 
   // Realtime subscription & instant fetch
