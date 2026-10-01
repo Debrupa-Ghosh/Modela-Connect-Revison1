@@ -450,7 +450,7 @@ export const AdminApprovalDashboard: React.FC = () => {
         >
           <FileText className="w-3.5 h-3.5" />
           <ShieldCheck className="w-3.5 h-3.5" />
-          <span>User Management</span>
+          <span>Requests</span>
             <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-400 text-slate-900 font-extrabold">
               {pendingCount}
             </span>
@@ -466,7 +466,7 @@ export const AdminApprovalDashboard: React.FC = () => {
           }`}
         >
           <FileText className="w-3.5 h-3.5" />
-          <span>Requests</span>
+          <span>User Management & Access Control</span>
           <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-700 text-slate-300 font-medium">
             {employeeRequestsCount}
           </span>
