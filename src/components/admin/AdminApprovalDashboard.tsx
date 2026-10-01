@@ -64,6 +64,8 @@ export interface ManagedUser {
   assignedRole?: string | null;
   requestedRole?: string | null;
   notificationUnread?: boolean;
+  description?: string;
+  requestReason?: string;
 }
 
 export const AdminApprovalDashboard: React.FC = () => {
@@ -552,6 +554,7 @@ export const AdminApprovalDashboard: React.FC = () => {
                   <th className="py-3.5 px-4">User Name</th>
                   <th className="py-3.5 px-4">Email</th>
                   <th className="py-3.5 px-4">Request Date</th>
+                  <th className="py-3.5 px-4">Reason / Details</th>
                   <th className="py-3.5 px-4">Status</th>
                   <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
@@ -559,7 +562,7 @@ export const AdminApprovalDashboard: React.FC = () => {
               <tbody className="divide-y divide-slate-700/60 text-xs">
                 {filteredAccessRequests.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-12 text-center text-slate-400 text-xs">
+                    <td colSpan={6} className="py-12 text-center text-slate-400 text-xs">
                       {isLoading
                         ? "Loading access requests..."
                         : "No user requests match the selected criteria."}
@@ -610,7 +613,14 @@ export const AdminApprovalDashboard: React.FC = () => {
                             : "N/A"}
                         </td>
 
-                        {/* 4. Status Badge */}
+                        {/* 4. Reason Snippet */}
+                        <td className="py-3.5 px-4 text-slate-400 text-xs">
+                          <div className="max-w-[200px] truncate" title={user.description || user.requestReason || "Account Access & Onboarding Request"}>
+                            {user.description || user.requestReason || "Account Access & Onboarding Request"}
+                          </div>
+                        </td>
+
+                        {/* 5. Status Badge */}
                         <td className="py-3.5 px-4">
                           {isPending && (
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30">
@@ -632,32 +642,19 @@ export const AdminApprovalDashboard: React.FC = () => {
                           )}
                         </td>
 
-                        {/* 5. Actions */}
+                        {/* 6. Actions */}
                         <td className="py-3.5 px-4 text-right">
                           {isPending ? (
                             <div className="inline-flex items-center gap-2">
-                              {/* Section 4.B: Clicking "Approve" on a Pending Request opens Role Modal */}
+                              {/* View Full Request Modal Trigger */}
                               <button
-                                id={`approve-btn-${uid}`}
+                                id={`view-btn-${uid}`}
                                 onClick={() => handleOpenAcceptModal(user)}
                                 disabled={isProcessing}
-                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1 shadow-sm disabled:opacity-50"
+                                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1 shadow-sm disabled:opacity-50"
                               >
-                                <UserCheck className="w-3.5 h-3.5" />
-                                <span>Approve</span>
-                              </button>
-
-                              {/* Reject Request Action */}
-                              <button
-                                id={`reject-btn-${uid}`}
-                                onClick={() =>
-                                  handleRejectRequest(uid, user.email, user.name)
-                                }
-                                disabled={isProcessing}
-                                className="px-3 py-1.5 bg-red-600/80 hover:bg-red-600 active:bg-red-700 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1 disabled:opacity-50"
-                              >
-                                <UserX className="w-3.5 h-3.5" />
-                                <span>Reject</span>
+                                <FileText className="w-3.5 h-3.5" />
+                                <span>View Details</span>
                               </button>
                             </div>
                           ) : isApproved ? (
@@ -901,43 +898,53 @@ export const AdminApprovalDashboard: React.FC = () => {
             </div>
 
             {/* Modal Body: Name, Email, Request Date */}
-            <div className="bg-slate-900 border border-slate-700/80 rounded-xl p-4 space-y-2.5 text-xs">
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400 font-medium">Name:</span>
-                <span className="text-white font-semibold">
-                  {selectedUserForApproval.name}
-                </span>
+            <div className="bg-slate-900 border border-slate-700/80 rounded-xl p-4 space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-4 border-b border-slate-700/60 pb-3">
+                <div className="space-y-1">
+                  <span className="text-slate-400 font-medium block">Applicant Name</span>
+                  <span className="text-white font-semibold block">
+                    {selectedUserForApproval.name}
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-slate-400 font-medium block">Applicant Email</span>
+                  <span className="text-slate-200 font-mono block truncate">
+                    {selectedUserForApproval.email}
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-slate-400 font-medium block">User UID</span>
+                  <span className="text-slate-500 font-mono block text-[10px] truncate">
+                    {selectedUserForApproval.id || selectedUserForApproval.uid}
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-slate-400 font-medium block">Submission Timestamp</span>
+                  <span className="text-slate-300 font-mono text-[11px] block">
+                    {selectedUserForApproval.requestDate || selectedUserForApproval.requestedAt
+                      ? new Date(
+                          (selectedUserForApproval.requestDate ||
+                            selectedUserForApproval.requestedAt)!
+                        ).toLocaleString([], {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })
+                      : "N/A"}
+                  </span>
+                </div>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400 font-medium">Email:</span>
-                <span className="text-slate-200 font-mono">
-                  {selectedUserForApproval.email}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400 font-medium">Request Date:</span>
-                <span className="text-slate-300 font-mono text-[11px]">
-                  {selectedUserForApproval.requestDate || selectedUserForApproval.requestedAt
-                    ? new Date(
-                        (selectedUserForApproval.requestDate ||
-                          selectedUserForApproval.requestedAt)!
-                      ).toLocaleString([], {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      })
-                    : "N/A"}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400 font-medium">Current Status:</span>
-                <span className="text-slate-300 font-semibold uppercase">
-                  {selectedUserForApproval.status}
-                </span>
+
+              {/* Detailed Request Reason / Description */}
+              <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
+                <span className="text-slate-400 font-medium mb-1 block">Detailed Reason / Request Description</span>
+                <p className="text-slate-200 leading-relaxed whitespace-pre-wrap font-medium">
+                  {selectedUserForApproval.description || selectedUserForApproval.requestReason || "Account Access & Onboarding Request"}
+                </p>
               </div>
             </div>
 
             {/* Role Selection Dropdown: [ SUPER_ADMIN, HR_ADMIN, HR_MANAGER, EMPLOYEE ] */}
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 mt-4">
               <label
                 htmlFor="role-dropdown"
                 className="block text-xs font-semibold text-slate-300"
@@ -962,12 +969,12 @@ export const AdminApprovalDashboard: React.FC = () => {
             </div>
 
             {/* Remarks / Reason Input */}
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 mt-4">
               <label
                 htmlFor="modal-remarks-input"
                 className="block text-xs font-semibold text-slate-300"
               >
-                Remarks / Reason (Optional):
+                HR Review Remarks (Optional):
               </label>
               <textarea
                 id="modal-remarks-input"
@@ -980,7 +987,7 @@ export const AdminApprovalDashboard: React.FC = () => {
             </div>
 
             {/* Modal Actions */}
-            <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-700">
+            <div className="flex items-center justify-between gap-3 pt-4 mt-4 border-t border-slate-700">
               {/* Reject Request Action */}
               <button
                 type="button"
@@ -996,7 +1003,7 @@ export const AdminApprovalDashboard: React.FC = () => {
                 className="px-3.5 py-2 bg-red-600/80 hover:bg-red-600 active:bg-red-700 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer disabled:opacity-60 flex items-center gap-1.5"
               >
                 <UserX className="w-3.5 h-3.5" />
-                <span>Reject Request</span>
+                <span>Reject</span>
               </button>
 
               <div className="flex items-center gap-2">
@@ -1013,7 +1020,7 @@ export const AdminApprovalDashboard: React.FC = () => {
                   Cancel
                 </button>
 
-                {/* "Approve & Assign Role" Action */}
+                {/* "Approve & Unlock" Action */}
                 <button
                   id="modal-approve-user-btn"
                   type="button"
@@ -1024,12 +1031,12 @@ export const AdminApprovalDashboard: React.FC = () => {
                   {isSubmittingApproval ? (
                     <>
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Saving...</span>
+                      <span>Unlocking...</span>
                     </>
                   ) : (
                     <>
                       <UserCheck className="w-3.5 h-3.5" />
-                      <span>Approve & Assign Role</span>
+                      <span>Approve & Unlock</span>
                     </>
                   )}
                 </button>

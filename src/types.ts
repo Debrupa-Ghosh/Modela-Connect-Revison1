@@ -40,6 +40,8 @@ export interface AuthRequestUser {
   reviewedBy?: string;
   notificationUnread?: boolean;
   employeeId?: string;
+  description?: string;
+  requestReason?: string;
 }
 
 export type EmployeeStatus = "ONBOARDING" | "ACTIVE" | "INACTIVE" | "TERMINATED";

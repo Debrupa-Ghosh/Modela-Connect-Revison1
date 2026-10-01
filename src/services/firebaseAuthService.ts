@@ -162,6 +162,8 @@ export function normalizeToAuthRequest(data: DocumentData, docId?: string): Auth
   const id = data.userId || data.uid || docId || "";
   const role = data.assignedRole || data.role || data.requestedRole || "Employee";
 
+  const description = data.description || data.reason || data.message || "Account Access & Onboarding Request";
+
   return {
     id,
     uid: id,
@@ -175,6 +177,8 @@ export function normalizeToAuthRequest(data: DocumentData, docId?: string): Auth
     reviewedBy: data.processedBy || data.reviewedBy || undefined,
     reviewedAt,
     actionByUserId: data.processedBy || data.reviewedBy || undefined,
+    description,
+    requestReason: description,
   };
 }
 
