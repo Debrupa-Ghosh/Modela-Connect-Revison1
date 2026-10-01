@@ -374,6 +374,7 @@ export const AdminApprovalDashboard: React.FC = () => {
 
   const pendingCount = filteredUserManagement.length;
   const employeeRequestsCount = filteredEmployeeRequests.length;
+  const approvedEmployeesCount = users.filter(
     (u) => normalizeStatus(u.status) === "APPROVED" && isEmployeeRole(u.role)
   ).length;
 
