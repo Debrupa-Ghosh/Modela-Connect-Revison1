@@ -111,7 +111,7 @@ export interface AccessRequestDoc {
   userEmail: string;
   applicantName: string;
   requestType: string;
-  status: "pending" | "approved" | "rejected";
+  status: "PENDING" | "approved" | "rejected";
   timestamp: any;
   processedBy: string | null;
   processedAt: any | null;
@@ -137,13 +137,13 @@ export interface AccessRequestDoc {
  * Normalizes raw Firestore document data to AuthRequestUser format
  */
 export function normalizeToAuthRequest(data: DocumentData, docId?: string): AuthRequestUser {
-  const rawStatus = String(data.status || "pending").trim().toLowerCase();
+  const rawStatus = String(data.status || "PENDING").trim().toLowerCase();
   const status: AuthorizationStatus =
     rawStatus === "approved"
       ? "Approved"
       : rawStatus === "rejected"
       ? "Rejected"
-      : "Pending";
+      : "PENDING";
 
   const rawCreatedAt = data.timestamp || data.createdAt || data.requestTime || data.requestedAt;
   const requestedAt = rawCreatedAt?.toDate
@@ -184,7 +184,7 @@ export function normalizeToAuthRequest(data: DocumentData, docId?: string): Auth
 
 /**
  * 1. submitAccessRequest(userData)
- * Saves request to Firestore collection `access_requests` with "pending" status.
+ * Saves request to Firestore collection `access_requests` with "PENDING" status.
  * Reuses existing pending request if present; allows access if already approved.
  */
 export async function submitAccessRequest(userData: {
@@ -196,7 +196,7 @@ export async function submitAccessRequest(userData: {
   photoURL?: string;
 }): Promise<{
   success: boolean;
-  status: "pending" | "approved" | "rejected";
+  status: "PENDING" | "approved" | "rejected";
   requestId: string;
   message: string;
   user?: AuthRequestUser;
@@ -221,31 +221,32 @@ export async function submitAccessRequest(userData: {
           avatar_url: userData.photoURL || "",
           status: "PENDING",
           requested_at: nowIso,
+          description: "Account Access & Onboarding Request"
         }),
       });
       if (res.ok) {
         const data = await res.json();
         const norm = normalizeToAuthRequest(data.user || {}, data.user?.id || deterministicUid);
-        const st = String(data.status || "pending").toLowerCase() as "pending" | "approved" | "rejected";
+        const st = String(data.status || "PENDING").toLowerCase() as "PENDING" | "approved" | "rejected";
         return {
           success: true,
-          status: st === "approved" ? "approved" : st === "rejected" ? "rejected" : "pending",
+          status: st === "approved" ? "approved" : st === "rejected" ? "rejected" : "PENDING",
           requestId: data.user?.id || deterministicUid,
           message: data.message || "Request processed",
           user: norm,
         };
+      } else {
+        throw new Error("Server returned status " + res.status);
       }
     } catch (backendErr) {
       console.warn("Backend API sync failed:", backendErr);
+      return {
+        success: false,
+        status: "PENDING",
+        requestId: deterministicUid,
+        message: "CRITICAL ERROR: Could not reach the backend. If you are on Render, ensure you are accessing the Web Service URL, not the Static Site URL. Error: " + backendErr,
+      };
     }
-
-    return {
-      success: true,
-      status: "pending",
-      requestId: deterministicUid,
-      message: "Your request has been sent to the HR Admin. Please wait for approval.",
-    };
-  }
 
   // Live Firestore write
   try {
@@ -258,11 +259,11 @@ export async function submitAccessRequest(userData: {
       const existingStatus = String(existing.status || "").trim().toLowerCase();
 
       // 1. Existing Pending -> reuse it
-      if (existingStatus === "pending") {
+      if (existingStatus === "PENDING") {
         const norm = normalizeToAuthRequest(existing, existingSnap.id);
         return {
           success: true,
-          status: "pending",
+          status: "PENDING",
           requestId: existingSnap.id,
           message: "Your access request is currently pending HR/Super Admin review.",
           user: norm,
@@ -284,7 +285,7 @@ export async function submitAccessRequest(userData: {
       // 3. Existing Rejected -> follow existing re-request logic (reset to pending)
       if (existingStatus === "rejected") {
         const updatedPayload: Partial<AccessRequestDoc> = {
-          status: "pending",
+          status: "PENDING",
           timestamp: serverTimestamp(),
           requestTime: nowIso,
           requestedAt: nowIso,
@@ -298,7 +299,7 @@ export async function submitAccessRequest(userData: {
         const norm = normalizeToAuthRequest(updatedSnap.data() || {}, reqDocRef.id);
         return {
           success: true,
-          status: "pending",
+          status: "PENDING",
           requestId: reqDocRef.id,
           message: "Your access request has been resubmitted and is pending approval.",
           user: norm,
@@ -318,10 +319,10 @@ export async function submitAccessRequest(userData: {
       const existing = existingDoc.data();
       const existingStatus = String(existing.status || "").trim().toLowerCase();
 
-      if (existingStatus === "pending") {
+      if (existingStatus === "PENDING") {
         return {
           success: true,
-          status: "pending",
+          status: "PENDING",
           requestId: existingDoc.id,
           message: "Your access request is already pending approval.",
           user: normalizeToAuthRequest(existing, existingDoc.id),
@@ -344,7 +345,7 @@ export async function submitAccessRequest(userData: {
       userEmail: cleanEmail,
       applicantName: cleanName,
       requestType: userData.requestType || "ACCESS_REQUEST",
-      status: "pending",
+      status: "PENDING",
       timestamp: serverTimestamp(),
       processedBy: null,
       processedAt: null,
@@ -372,7 +373,7 @@ export async function submitAccessRequest(userData: {
       uid: deterministicUid,
       email: cleanEmail,
       name: cleanName,
-      status: "Pending",
+      status: "PENDING",
       role: "Employee",
       requestedAt: nowIso,
     }, { merge: true });
@@ -380,7 +381,7 @@ export async function submitAccessRequest(userData: {
     const normUser = normalizeToAuthRequest(newDocData, deterministicUid);
     return {
       success: true,
-      status: "pending",
+      status: "PENDING",
       requestId: deterministicUid,
       message: "Your request has been sent to the HR Admin. Please wait for approval.",
       user: normUser,
@@ -389,7 +390,7 @@ export async function submitAccessRequest(userData: {
     console.warn("[Firestore] submitAccessRequest write error:", err);
     return {
       success: true,
-      status: "pending",
+      status: "PENDING",
       requestId: deterministicUid,
       message: "Your request has been sent to the HR Admin. Please wait for approval.",
     };
@@ -403,7 +404,7 @@ export async function submitAccessRequest(userData: {
  */
 export function subscribeToUserRequestStatus(
   userEmailOrId: string,
-  onStatusChange: (status: "pending" | "approved" | "rejected", requestDoc: AuthRequestUser) => void,
+  onStatusChange: (status: "PENDING" | "approved" | "rejected", requestDoc: AuthRequestUser) => void,
   onError?: (error: unknown) => void
 ): () => void {
   const clean = userEmailOrId.trim().toLowerCase();
@@ -422,8 +423,8 @@ export function subscribeToUserRequestStatus(
           if (data.user) {
             const norm = normalizeToAuthRequest(data.user, data.user.id);
             const raw = String(norm.status || "").toLowerCase();
-            const st: "pending" | "approved" | "rejected" =
-              raw === "approved" ? "approved" : raw === "rejected" ? "rejected" : "pending";
+            const st: "PENDING" | "approved" | "rejected" =
+              raw === "approved" ? "approved" : raw === "rejected" ? "rejected" : "PENDING";
             onStatusChange(st, norm);
           }
         }
@@ -452,8 +453,8 @@ export function subscribeToUserRequestStatus(
             if (matched) {
               const norm = normalizeToAuthRequest(matched, matched.id);
               const raw = String(norm.status || "").toLowerCase();
-              const st: "pending" | "approved" | "rejected" =
-                raw === "approved" ? "approved" : raw === "rejected" ? "rejected" : "pending";
+              const st: "PENDING" | "approved" | "rejected" =
+                raw === "approved" ? "approved" : raw === "rejected" ? "rejected" : "PENDING";
               onStatusChange(st, norm);
             }
           } catch {}
@@ -492,8 +493,8 @@ export function subscribeToUserRequestStatus(
           const data = docSnap.data();
           const norm = normalizeToAuthRequest(data, docSnap.id);
           const raw = String(data.status || "").toLowerCase();
-          const st: "pending" | "approved" | "rejected" =
-            raw === "approved" ? "approved" : raw === "rejected" ? "rejected" : "pending";
+          const st: "PENDING" | "approved" | "rejected" =
+            raw === "approved" ? "approved" : raw === "rejected" ? "rejected" : "PENDING";
           onStatusChange(st, norm);
         }
       },
@@ -512,7 +513,7 @@ export function subscribeToUserRequestStatus(
 
 /**
  * 3. HR/Admin Dashboard Workflow: subscribeToPendingRequests
- * Real-time listener for all `status == "pending"` requests.
+ * Real-time listener for all `status == "PENDING"` requests.
  */
 export function subscribeToPendingRequests(
   callback: (requests: AuthRequestUser[]) => void,
@@ -578,7 +579,7 @@ export function subscribeToPendingRequests(
   try {
     const pendingQuery = query(
       collection(db, "access_requests"),
-      where("status", "in", ["pending", "PENDING"])
+      where("status", "in", ["PENDING", "PENDING"])
     );
 
     return onSnapshot(
