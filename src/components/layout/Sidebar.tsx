@@ -46,7 +46,7 @@ const ALL_NAV_ITEMS: NavItemConfig[] = [
   },
   {
     to: "/admin",
-    label: "User Management",
+    label: "Requests",
     icon: ShieldCheck,
     allowedRoles: ["SUPERADMIN", "ADMIN", "Super Admin", "Admin", "HR Admin"],
     restrictedForEmployee: true,
@@ -84,7 +84,7 @@ const ALL_NAV_ITEMS: NavItemConfig[] = [
   },
   {
     to: "/requests",
-    label: "Requests",
+    label: "User management",
     icon: FileCheck2,
   },
   {
