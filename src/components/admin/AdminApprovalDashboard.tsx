@@ -574,9 +574,9 @@ export const AdminApprovalDashboard: React.FC = () => {
                   <tr>
                     <td colSpan={6} className="py-12 text-center text-slate-400 text-xs">
                       {isLoading
-                        ? "Loading access requests..."
                         ? "Loading new access requests..."
                         : "No pending access requests."}
+                    </td>
                   </tr>
                 ) : (
                    filteredUserManagement.map((user) => {
