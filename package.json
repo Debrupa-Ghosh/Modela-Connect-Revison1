@@ -7,7 +7,7 @@
     "dev": "tsx server.ts",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "node server.ts",
+    "start": "tsx server.ts",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
@@ -27,6 +27,7 @@
     "react-hook-form": "^7.88.0",
     "react-router-dom": "^7.18.3",
     "tailwind-merge": "^3.7.0",
+    "tsx": "^4.23.15",
     "vite": "^6.2.3",
     "zod": "^4.6.5"
   },
@@ -35,7 +36,6 @@
     "@types/node": "^22.14.0",
     "autoprefixer": "^10.4.21",
     "tailwindcss": "^4.1.14",
-    "tsx": "^4.23.15",
     "typescript": "~5.8.2"
   }
 }

@@ -13,7 +13,13 @@ import { createServer as createViteServer } from "vite";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const DATA_DIR = path.resolve(__dirname, "data");
+// DATA_DIR can be set to a Render Persistent Disk mount path (e.g., /var/data)
+// to survive across deploys. Without this, Render's ephemeral filesystem resets
+// on every deploy/restart, wiping all user data.
+const DATA_DIR = process.env.DATA_DIR
+  ? path.resolve(process.env.DATA_DIR)
+  : path.resolve(__dirname, "data");
+const SEED_DIR = path.resolve(__dirname, "data"); // always points to the committed seed data
 const USERS_FILE = path.join(DATA_DIR, "users.json");
 const EMPLOYEES_FILE = path.join(DATA_DIR, "employees.json");
 const LOGS_FILE = path.join(DATA_DIR, "audit_logs.json");
@@ -22,6 +28,27 @@ const LOGS_FILE = path.join(DATA_DIR, "audit_logs.json");
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
+
+// If the data files don't exist in DATA_DIR yet (first deploy with persistent disk,
+// or fresh Render restart without persistent disk), copy seed data from the committed
+// `data/` directory so we don't start empty.
+function initializeDataFile(targetFile: string, seedFileName: string): void {
+  if (!fs.existsSync(targetFile)) {
+    const seedFile = path.join(SEED_DIR, seedFileName);
+    if (fs.existsSync(seedFile)) {
+      fs.copyFileSync(seedFile, targetFile);
+      console.log(`[Init] Seeded ${targetFile} from ${seedFile}`);
+    } else {
+      // No seed file exists either, write empty array
+      fs.writeFileSync(targetFile, "[]", "utf-8");
+      console.log(`[Init] Created empty ${targetFile}`);
+    }
+  }
+}
+
+initializeDataFile(USERS_FILE, "users.json");
+initializeDataFile(EMPLOYEES_FILE, "employees.json");
+initializeDataFile(LOGS_FILE, "audit_logs.json");
 
 // Authorized Admin Google Emails
 const AUTHORIZED_ADMIN_EMAILS = [
@@ -42,24 +69,40 @@ function isAuthorizedAdminEmail(email?: string | null): boolean {
   );
 }
 
-// Database helper functions
+// Database helper functions with IN-MEMORY CACHE
+// The in-memory cache is the primary store. Disk writes are a persistence backup.
+// This ensures data survives within a single process lifetime even if the
+// ephemeral filesystem gets wiped (common on Render free tier between writes).
+const memoryCache = new Map<string, any>();
+
 function readJsonFile<T>(filePath: string, fallback: T): T {
+  // Check in-memory cache first (authoritative)
+  if (memoryCache.has(filePath)) {
+    return memoryCache.get(filePath) as T;
+  }
+  // Fall back to disk
   try {
     if (fs.existsSync(filePath)) {
       const data = fs.readFileSync(filePath, "utf-8");
-      return JSON.parse(data) as T;
+      const parsed = JSON.parse(data) as T;
+      memoryCache.set(filePath, parsed); // populate cache
+      return parsed;
     }
   } catch (err) {
     console.error(`Error reading ${filePath}:`, err);
   }
+  memoryCache.set(filePath, fallback);
   return fallback;
 }
 
 function writeJsonFile<T>(filePath: string, data: T): void {
+  // Always update in-memory cache first (instant, never fails)
+  memoryCache.set(filePath, data);
+  // Then persist to disk as best-effort backup
   try {
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
   } catch (err) {
-    console.error(`Error writing ${filePath}:`, err);
+    console.error(`Error writing ${filePath} (data is still in memory):`, err);
   }
 }
 
@@ -697,7 +740,15 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
+    const users = getStoredUsers();
+    const pendingCount = users.filter((u) => {
+      const s = String(u.status || "").trim().toUpperCase();
+      return s === "PENDING" || s === "PENDING_APPROVAL";
+    }).length;
     console.log(`Modela Connect Full-Stack Server running at http://0.0.0.0:${PORT}`);
+    console.log(`[Startup] DATA_DIR: ${DATA_DIR}`);
+    console.log(`[Startup] Users loaded: ${users.length} (${pendingCount} pending)`);
+    console.log(`[Startup] NODE_ENV: ${process.env.NODE_ENV || "not set"}`);
   });
 }
 
