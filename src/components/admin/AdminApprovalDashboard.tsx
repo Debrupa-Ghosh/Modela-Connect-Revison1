@@ -454,7 +454,6 @@ export const AdminApprovalDashboard: React.FC = () => {
             <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-400 text-slate-900 font-extrabold">
               {pendingCount}
             </span>
-          )}
         </button>
 
 
@@ -552,10 +551,10 @@ export const AdminApprovalDashboard: React.FC = () => {
       </div>
 
       {/* ========================================================================= */}
-      {/* ========================================================================= */
-      {/* SECTION: USER MANAGEMENT TABLE - shows PENDING access requests            */
-      {/* Columns: [User Name | Email | Request Date | Reason | Actions]           */
-      {/* Strict NO-IMAGE Policy: Standard plain text identification only          */
+      {/* ========================================================================= */}
+      {/* SECTION: USER MANAGEMENT TABLE - shows PENDING access requests            */}
+      {/* Columns: [User Name | Email | Request Date | Reason | Actions]           */}
+      {/* Strict NO-IMAGE Policy: Standard plain text identification only          */}
       {activeView === "USER_MANAGEMENT" ? (
         <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
